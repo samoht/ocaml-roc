@@ -1,2 +1,2 @@
 all:
-	ocamlopt unix.cmxa model.ml -o model
+	ocamlopt -inline 10 unix.cmxa model.ml -o model
