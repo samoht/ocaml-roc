@@ -174,6 +174,7 @@ module System: sig
   type t
   val create: model -> gains -> input -> t
   val update: t -> t
+  val output: t -> Vector.t
 end = struct
 
   type t = {
@@ -184,18 +185,20 @@ end = struct
     input: unit -> Vector.t;
     (* the part which can actually change *)
     observer: Observer.t;
-    state   : Vector.t;
+    output  : Vector.t;
   }
 
   let create model gains input =
     let observer = Observer.create input in
-    let state = Observer.state observer in
-    { model; gains; input; observer; state }
+    let output = inv (gains.k ** Observer.state observer) in
+    { model; gains; input; observer; output }
 
   (* x = - Ku *)
   let update t =
     let observer = Observer.update t.model t.gains t.input t.observer in
-    let state = inv (t.gains.k ** (Observer.state observer)) in
-    { t with observer; state }
+    let output = inv (t.gains.k ** Observer.state observer) in
+    { t with observer; output }
+
+  let output t = t.output
 
 end
