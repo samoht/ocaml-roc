@@ -126,11 +126,18 @@ type gains = {
 
 }
 
-module Observer = struct
+type input = (unit -> Vector.t)
+
+module Observer: sig
+  type t
+  val create: input -> t
+  val state: t -> Vector.t
+  val update: model -> gains -> input -> t -> t
+end = struct
 
   type t = {
     (* Estimated state. Could we wrong, but we hope that it will
-     eventually converge towards the real value. *)
+       eventually converge towards the real value. *)
     state: Vector.t;
 
     (* last time the observer routine has been called.
@@ -140,11 +147,13 @@ module Observer = struct
 
   let state t = t.state
 
-  let create ~input =
+  let create input =
     let time = Sys.time () in
     let state = input () in
     { state; time }
 
+  (* .
+     x' = Ax' + Bu - L(y - Cx') *)
   let update model gains input t =
     let y = input () in
     let u = inv (gains.k ** t.state) in
@@ -161,16 +170,32 @@ module Observer = struct
 
 end
 
-module System = struct
+module System: sig
+  type t
+  val create: model -> gains -> input -> t
+  val update: t -> t
+end = struct
 
   type t = {
+    (* this is supposed to be fixed (I guess, in some system we might
+       want to change that as well). *)
     model: model;
     gains: gains;
     input: unit -> Vector.t;
+    (* the part which can actually change *)
+    observer: Observer.t;
+    state   : Vector.t;
   }
 
-  let compute t observer =
-    let observer = Observer.update t.model t.gains t.input observer in
-    inv (t.gains.k ** (Observer.state observer))
+  let create model gains input =
+    let observer = Observer.create input in
+    let state = Observer.state observer in
+    { model; gains; input; observer; state }
+
+  (* x = - Ku *)
+  let update t =
+    let observer = Observer.update t.model t.gains t.input t.observer in
+    let state = inv (t.gains.k ** (Observer.state observer)) in
+    { t with observer; state }
 
 end
